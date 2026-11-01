@@ -135,6 +135,24 @@
     // 별도 슬롯을 쓴다 (.pic_title / room 배너 / Hello, 는 영문명 그대로 간다).
     setAllText('[data-index-hero-title]', this.firstText(hero.title, this.getPropertyNameEn()));
 
+    // 히어로 로고: index.essence.images[isSelected][0]
+    // 원본 히어로 문구 자리가 이미지인 숙소(아그니초시매)는 크롤러가 그 이미지를 essence 에 넣는다.
+    // A형은 essence 섹션을 안 쓰므로 그 칸을 로고 칸으로 빌린다. 로고가 있으면 WELCOME 줄·표시명 대신
+    // 로고를 보이고(원본도 WELCOME 줄을 주석 처리했다), 없으면 지금 텍스트 화면 그대로 둔다.
+    var logo = this.getSelectedImages((this.getSection().essence || {}).images || [])[0];
+    var logoAlt = this.firstText(hero.title, this.getPropertyName());
+    document.querySelectorAll('[data-index-hero-logo]').forEach(function (box) {
+      var txtTop = box.closest('.main_txt_top');
+      box.innerHTML = '';
+      box.hidden = !(logo && logo.url);
+      if (txtTop) txtTop.classList.toggle('has-logo', !box.hidden);
+      if (box.hidden) return;
+      var img = document.createElement('img');
+      img.src = logo.url;
+      img.alt = logoAlt;
+      box.appendChild(img);
+    });
+
     // 히어로 보조 문구: hero.description → 폴백 property.subtitle
     // (백오피스 빈 값이 공백 한 칸으로 오므로 firstText 로 걸러낸다)
     var desc = this.firstText(hero.description, this.getProperty().subtitle);
@@ -173,9 +191,10 @@
 
   // MAPPER: property.facilities[] → [data-index-special-list]
   // .parallax-window[data-image-src] > a.spe_in_txt > .txt_box > strong(영문명) + p(시설명)
+  // 앞에서부터 최대 3개만 노출한다 (3개 이하면 있는 만큼).
   IndexMapper.prototype.mapSpecialList = function () {
     var self = this;
-    var facilities = this.getProperty().facilities || [];
+    var facilities = (this.getProperty().facilities || []).slice(0, 3);
 
     document.querySelectorAll('[data-index-special-list]').forEach(function (container) {
       container.innerHTML = '';
@@ -208,15 +227,14 @@
 
         // 원본은 strong=영문명 / p=한글명 구조였지만, facilities[] 에 nameEn 이
         // 없는 응답이 일반적이라 strong 이 한글명으로 폴백된다.
-        // 그러면 p 가 같은 한글명을 반복하므로, p 는 시설 설명을 쓴다.
+        // 시설 설명은 쓰지 않는다 — strong 이 영문명일 때만 p 에 한글명을 넣고,
+        // 한글명으로 폴백됐으면 p 를 숨겨 같은 이름이 두 번 나오지 않게 한다.
         var strong = document.createElement('strong');
         strong.textContent = self.firstText(f.nameEn, f.name);
 
         var p = document.createElement('p');
-        var desc = self.firstText(f.description);
-        // strong 이 이미 한글명이면 설명이 없을 때 p 를 비워 중복 노출을 막는다
         var isNameEnUsed = !!self.cleanText(f.nameEn);
-        p.textContent = desc || (isNameEnUsed ? self.cleanText(f.name) : '');
+        p.textContent = isNameEnUsed ? self.cleanText(f.name) : '';
         if (!p.textContent) p.style.display = 'none';
 
         txt.appendChild(strong);
